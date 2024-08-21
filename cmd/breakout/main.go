@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -16,6 +15,10 @@ const (
 	ballRadius   = 4
 	ballStartY   = 160
 	paddleSpeed  = 100
+	numBlocksX   = 10
+	numBlocksY   = 8
+	blockWidth   = 20
+	blockHeight  = 10
 )
 
 var (
@@ -23,12 +26,19 @@ var (
 	ballPos    rl.Vector2
 	ballDir    rl.Vector2
 	started    bool
+	blocks     [numBlocksX][numBlocksY]bool
+	rowColors  = [numBlocksY]rl.Color{}
 )
 
 func restart() {
 	paddlePosX = screenSize/2 - paddleWidth/2
 	ballPos = rl.NewVector2(screenSize/2, ballStartY)
 	started = false
+	for i := 0; i < numBlocksX; i++ {
+		for j := 0; j < numBlocksY; j++ {
+			blocks[i][j] = true
+		}
+	}
 }
 
 func reflect(dir, normal rl.Vector2) rl.Vector2 {
@@ -36,6 +46,16 @@ func reflect(dir, normal rl.Vector2) rl.Vector2 {
 	return rl.Vector2Normalize(newDirection)
 }
 func main() {
+	rowColors = [numBlocksY]rl.Color{
+		rl.Red,
+		rl.Red,
+		rl.Orange,
+		rl.Orange,
+		rl.Green,
+		rl.Green,
+		rl.Yellow,
+		rl.Yellow,
+	}
 	rl.SetConfigFlags(rl.FlagVsyncHint)
 	rl.InitWindow(700, 700, "breakout")
 	rl.SetTargetFPS(500)
@@ -120,6 +140,28 @@ func main() {
 		rl.BeginMode2D(camera)
 		rl.DrawRectangleRec(paddleRect, paddleColor)
 		rl.DrawCircleV(ballPos, ballRadius, rl.Red)
+		for x := 0; x < numBlocksX; x++ {
+			for y := 0; y < numBlocksY; y++ {
+				if !blocks[x][y] {
+					continue
+				}
+				rect := rl.NewRectangle(
+					float32(60+x*blockWidth),
+					float32(40+y*blockHeight),
+					blockWidth,
+					blockHeight,
+				)
+				rl.DrawRectangleRec(rect, rowColors[y])
+				topLeft := rl.NewVector2(rect.X, rect.Y)
+				topRight := rl.NewVector2(rect.X+rect.Width, rect.Y)
+				bottomLeft := rl.NewVector2(rect.X, rect.Y+rect.Height)
+				bottomRight := rl.NewVector2(rect.X+rect.Width, rect.Y+rect.Height)
+				rl.DrawLineEx(topLeft, topRight, 1, rl.NewColor(255, 255, 150, 100))
+				rl.DrawLineEx(topLeft, bottomLeft, 1, rl.NewColor(255, 255, 150, 100))
+				rl.DrawLineEx(topRight, bottomRight, 1, rl.NewColor(0, 0, 50, 100))
+				rl.DrawLineEx(bottomLeft, bottomRight, 1, rl.NewColor(0, 0, 50, 100))
+			}
+		}
 
 		rl.EndDrawing()
 	}
