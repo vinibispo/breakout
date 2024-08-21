@@ -30,6 +30,15 @@ var (
 	rowColors  = [numBlocksY]rl.Color{}
 )
 
+func calcBlockRect(x, y int) rl.Rectangle {
+	return rl.NewRectangle(
+		float32(60+x*blockWidth),
+		float32(40+y*blockHeight),
+		blockWidth,
+		blockHeight,
+	)
+}
+
 func restart() {
 	paddlePosX = screenSize/2 - paddleWidth/2
 	ballPos = rl.NewVector2(screenSize/2, ballStartY)
@@ -45,6 +54,17 @@ func reflect(dir, normal rl.Vector2) rl.Vector2 {
 	newDirection := rl.Vector2Reflect(dir, rl.Vector2Normalize(normal))
 	return rl.Vector2Normalize(newDirection)
 }
+
+func blockExists(x, y int) bool {
+	if x < 0 || x >= numBlocksX {
+		return false
+	}
+	if y < 0 || y >= numBlocksY {
+		return false
+	}
+	return blocks[x][y]
+}
+
 func main() {
 	rowColors = [numBlocksY]rl.Color{
 		rl.Red,
@@ -131,6 +151,45 @@ func main() {
 				ballDir = reflect(ballDir, collisionNormal)
 			}
 		}
+
+		for x := 0; x < numBlocksX; x++ {
+			for y := 0; y < numBlocksY; y++ {
+				if !blocks[x][y] {
+					continue
+				}
+				blockRect := calcBlockRect(x, y)
+				if rl.CheckCollisionCircleRec(ballPos, ballRadius, blockRect) {
+					collisionNormal := rl.NewVector2(0, 0)
+					if previousBallPos.Y < blockRect.Y {
+						collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(0, -1))
+					}
+					if previousBallPos.Y > blockRect.Y+blockRect.Height {
+						collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(0, 1))
+					}
+
+					if previousBallPos.X < blockRect.X {
+						collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(-1, 0))
+					}
+					if previousBallPos.X > blockRect.X+blockRect.Width {
+						collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(1, 0))
+					}
+
+					if blockExists(x+int(collisionNormal.X), y) {
+						collisionNormal.X = 0
+					}
+
+					if blockExists(x, y+int(collisionNormal.Y)) {
+						collisionNormal.Y = 0
+					}
+
+					if collisionNormal.X != 0 || collisionNormal.Y != 0 {
+						ballDir = reflect(ballDir, collisionNormal)
+					}
+					blocks[x][y] = false
+				}
+			}
+		}
+
 		rl.BeginDrawing()
 
 		rl.ClearBackground(backgroundColor)
@@ -145,12 +204,7 @@ func main() {
 				if !blocks[x][y] {
 					continue
 				}
-				rect := rl.NewRectangle(
-					float32(60+x*blockWidth),
-					float32(40+y*blockHeight),
-					blockWidth,
-					blockHeight,
-				)
+				rect := calcBlockRect(x, y)
 				rl.DrawRectangleRec(rect, rowColors[y])
 				topLeft := rl.NewVector2(rect.X, rect.Y)
 				topRight := rl.NewVector2(rect.X+rect.Width, rect.Y)
