@@ -90,10 +90,14 @@ func main() {
 	}
 	rl.SetConfigFlags(rl.FlagVsyncHint)
 	rl.InitWindow(700, 700, "breakout")
+	rl.InitAudioDevice()
 	rl.SetTargetFPS(500)
 	backgroundColor := rl.NewColor(150, 190, 220, 255)
 	ballTexture := rl.LoadTexture("assets/ball.png")
 	paddleTexture := rl.LoadTexture("assets/paddle.png")
+	hitBlockSound := rl.LoadSound("assets/hit_block.wav")
+	hitPaddleSound := rl.LoadSound("assets/hit_paddle.wav")
+	gameOverSound := rl.LoadSound("assets/game_over.wav")
 
 	restart()
 	for !rl.WindowShouldClose() {
@@ -132,6 +136,7 @@ func main() {
 
 		if !gameOver && ballPos.Y > screenSize+ballRadius*6 {
 			gameOver = true
+			rl.PlaySound(gameOverSound)
 		}
 		var paddleMoveVelocity float32
 		if rl.IsKeyDown(rl.KeyLeft) {
@@ -168,6 +173,7 @@ func main() {
 			if collisionNormal.X != 0 || collisionNormal.Y != 0 {
 				ballDir = reflect(ballDir, collisionNormal)
 			}
+			rl.PlaySound(hitPaddleSound)
 		}
 
 		rl.BeginDrawing()
@@ -232,6 +238,7 @@ func main() {
 					}
 					rowColor := rowColors[y]
 					score += blockScoreColor[rowColor]
+					rl.PlaySound(hitBlockSound)
 					blocks[x][y] = false
 					break out
 				}
@@ -255,5 +262,6 @@ func main() {
 		rl.EndMode2D()
 		rl.EndDrawing()
 	}
+	rl.CloseAudioDevice()
 	rl.CloseWindow()
 }
