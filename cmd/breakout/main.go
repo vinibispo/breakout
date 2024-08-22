@@ -23,15 +23,18 @@ const (
 )
 
 var (
-	paddlePosX      float32
-	ballPos         rl.Vector2
-	ballDir         rl.Vector2
-	started         bool
-	gameOver        bool
-	blocks          [numBlocksX][numBlocksY]bool
-	rowColors       [numBlocksY]rl.Color
-	score           int
-	blockScoreColor map[rl.Color]int
+	paddlePosX         float32
+	ballPos            rl.Vector2
+	ballDir            rl.Vector2
+	started            bool
+	gameOver           bool
+	blocks             [numBlocksX][numBlocksY]bool
+	rowColors          [numBlocksY]rl.Color
+	score              int
+	blockScoreColor    map[rl.Color]int
+	accumulatedTime    float32
+	previousBallPos    rl.Vector2
+	previousPaddlePosX float32
 )
 
 func calcBlockRect(x, y int) rl.Rectangle {
@@ -45,7 +48,9 @@ func calcBlockRect(x, y int) rl.Rectangle {
 
 func restart() {
 	paddlePosX = screenSize/2 - paddleWidth/2
+	previousPaddlePosX = paddlePosX
 	ballPos = rl.NewVector2(screenSize/2, ballStartY)
+	previousBallPos = ballPos
 	started = false
 	gameOver = false
 	score = 0
@@ -101,10 +106,11 @@ func main() {
 
 	restart()
 	for !rl.WindowShouldClose() {
-		var dt float32
+		const dt = 1.0 / 60.0
 		switch {
 		case !started:
 			ballPos = rl.NewVector2(screenSize/2+float32(math.Cos(rl.GetTime())*screenSize/2.5), ballStartY)
+			previousBallPos = ballPos
 			if rl.IsKeyPressed(rl.KeySpace) {
 				paddleMiddle := rl.NewVector2(paddlePosX+paddleWidth/2, paddlePosY)
 				ballToPaddle := rl.Vector2Subtract(paddleMiddle, ballPos)
@@ -116,65 +122,117 @@ func main() {
 				restart()
 			}
 		default:
-			dt = rl.GetFrameTime()
-		}
-		previousBallPos := ballPos
-		ballPos = rl.Vector2Add(ballPos, rl.Vector2Scale(ballDir, ballSpeed*dt))
-		if ballPos.X+ballRadius > screenSize {
-			ballPos.X = screenSize - ballRadius
-			ballDir = reflect(ballDir, rl.NewVector2(-1, 0))
-		}
-		if ballPos.X-ballRadius < 0 {
-			ballPos.X = ballRadius
-			ballDir = reflect(ballDir, rl.NewVector2(1, 0))
+			accumulatedTime += rl.GetFrameTime()
 		}
 
-		if ballPos.Y-ballRadius < 0 {
-			ballPos.Y = ballRadius
-			ballDir = reflect(ballDir, rl.NewVector2(0, 1))
-		}
-
-		if !gameOver && ballPos.Y > screenSize+ballRadius*6 {
-			gameOver = true
-			rl.PlaySound(gameOverSound)
-		}
-		var paddleMoveVelocity float32
-		if rl.IsKeyDown(rl.KeyLeft) {
-			paddleMoveVelocity -= paddleSpeed
-		}
-		if rl.IsKeyDown(rl.KeyRight) {
-			paddleMoveVelocity += paddleSpeed
-		}
-
-		paddlePosX += paddleMoveVelocity * dt
-		paddlePosX = rl.Clamp(paddlePosX, 0, screenSize-paddleWidth)
-		paddleRect := rl.NewRectangle(paddlePosX, paddlePosY, paddleWidth, paddleHeight)
-		if rl.CheckCollisionCircleRec(ballPos, ballRadius, paddleRect) {
-			collisionNormal := rl.NewVector2(0, 0)
-
-			if previousBallPos.Y < (paddleRect.Y + paddleRect.Height) {
-				collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(0, -1))
-				ballPos.Y = paddleRect.Y - ballRadius
+		for accumulatedTime >= dt {
+			previousBallPos = ballPos
+			previousPaddlePosX = paddlePosX
+			ballPos = rl.Vector2Add(ballPos, rl.Vector2Scale(ballDir, ballSpeed*dt))
+			if ballPos.X+ballRadius > screenSize {
+				ballPos.X = screenSize - ballRadius
+				ballDir = reflect(ballDir, rl.NewVector2(-1, 0))
+			}
+			if ballPos.X-ballRadius < 0 {
+				ballPos.X = ballRadius
+				ballDir = reflect(ballDir, rl.NewVector2(1, 0))
 			}
 
-			if previousBallPos.Y > (paddleRect.Y + paddleRect.Height) {
-				collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(0, 1))
-				ballPos.Y = paddleRect.Y + paddleRect.Height + ballRadius
+			if ballPos.Y-ballRadius < 0 {
+				ballPos.Y = ballRadius
+				ballDir = reflect(ballDir, rl.NewVector2(0, 1))
 			}
 
-			if previousBallPos.X < paddleRect.X {
-				collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(-1, 0))
+			if !gameOver && ballPos.Y > screenSize+ballRadius*6 {
+				gameOver = true
+				rl.PlaySound(gameOverSound)
+			}
+			var paddleMoveVelocity float32
+			if rl.IsKeyDown(rl.KeyLeft) {
+				paddleMoveVelocity -= paddleSpeed
+			}
+			if rl.IsKeyDown(rl.KeyRight) {
+				paddleMoveVelocity += paddleSpeed
 			}
 
-			if previousBallPos.X > paddleRect.X+paddleRect.Width {
-				collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(1, 0))
+			paddlePosX += paddleMoveVelocity * dt
+			paddlePosX = rl.Clamp(paddlePosX, 0, screenSize-paddleWidth)
+			paddleRect := rl.NewRectangle(paddlePosX, paddlePosY, paddleWidth, paddleHeight)
+			if rl.CheckCollisionCircleRec(ballPos, ballRadius, paddleRect) {
+				collisionNormal := rl.NewVector2(0, 0)
+
+				if previousBallPos.Y < (paddleRect.Y + paddleRect.Height) {
+					collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(0, -1))
+					ballPos.Y = paddleRect.Y - ballRadius
+				}
+
+				if previousBallPos.Y > (paddleRect.Y + paddleRect.Height) {
+					collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(0, 1))
+					ballPos.Y = paddleRect.Y + paddleRect.Height + ballRadius
+				}
+
+				if previousBallPos.X < paddleRect.X {
+					collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(-1, 0))
+				}
+
+				if previousBallPos.X > paddleRect.X+paddleRect.Width {
+					collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(1, 0))
+				}
+
+				if collisionNormal.X != 0 || collisionNormal.Y != 0 {
+					ballDir = reflect(ballDir, collisionNormal)
+				}
+				rl.PlaySound(hitPaddleSound)
 			}
 
-			if collisionNormal.X != 0 || collisionNormal.Y != 0 {
-				ballDir = reflect(ballDir, collisionNormal)
+		out:
+			for x := 0; x < numBlocksX; x++ {
+				for y := 0; y < numBlocksY; y++ {
+					if !blocks[x][y] {
+						continue
+					}
+					blockRect := calcBlockRect(x, y)
+					if rl.CheckCollisionCircleRec(ballPos, ballRadius, blockRect) {
+						collisionNormal := rl.NewVector2(0, 0)
+						if previousBallPos.Y < blockRect.Y {
+							collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(0, -1))
+						}
+						if previousBallPos.Y > blockRect.Y+blockRect.Height {
+							collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(0, 1))
+						}
+
+						if previousBallPos.X < blockRect.X {
+							collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(-1, 0))
+						}
+						if previousBallPos.X > blockRect.X+blockRect.Width {
+							collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(1, 0))
+						}
+
+						if blockExists(x+int(collisionNormal.X), y) {
+							collisionNormal.X = 0
+						}
+
+						if blockExists(x, y+int(collisionNormal.Y)) {
+							collisionNormal.Y = 0
+						}
+
+						if collisionNormal.X != 0 || collisionNormal.Y != 0 {
+							ballDir = reflect(ballDir, collisionNormal)
+						}
+						rowColor := rowColors[y]
+						score += blockScoreColor[rowColor]
+						rl.SetSoundPitch(hitBlockSound, float32(rl.GetRandomValue(8, 12))/10)
+						rl.PlaySound(hitBlockSound)
+						blocks[x][y] = false
+						break out
+					}
+				}
 			}
-			rl.PlaySound(hitPaddleSound)
+			accumulatedTime -= dt
 		}
+		blendFactor := accumulatedTime / dt
+		ballRenderPos := rl.Vector2Lerp(previousBallPos, ballPos, blendFactor)
+		paddleRenderPosX := rl.Lerp(previousPaddlePosX, paddlePosX, blendFactor)
 
 		rl.BeginDrawing()
 
@@ -183,8 +241,9 @@ func main() {
 			Zoom: float32(rl.GetScreenHeight() / screenSize),
 		}
 		rl.BeginMode2D(camera)
-		rl.DrawTextureV(paddleTexture, rl.NewVector2(paddlePosX, paddlePosY), rl.White)
-		rl.DrawTextureV(ballTexture, rl.Vector2Subtract(ballPos, rl.NewVector2(ballRadius, ballRadius)), rl.White)
+		rl.DrawTextureV(paddleTexture, rl.NewVector2(paddleRenderPosX, paddlePosY), rl.White)
+		rl.DrawTextureV(ballTexture, rl.Vector2Subtract(ballRenderPos, rl.NewVector2(ballRadius, ballRadius)), rl.White)
+
 		for x := 0; x < numBlocksX; x++ {
 			for y := 0; y < numBlocksY; y++ {
 				if !blocks[x][y] {
@@ -202,50 +261,6 @@ func main() {
 				rl.DrawLineEx(bottomLeft, bottomRight, 1, rl.NewColor(0, 0, 50, 100))
 			}
 		}
-	out:
-		for x := 0; x < numBlocksX; x++ {
-			for y := 0; y < numBlocksY; y++ {
-				if !blocks[x][y] {
-					continue
-				}
-				blockRect := calcBlockRect(x, y)
-				if rl.CheckCollisionCircleRec(ballPos, ballRadius, blockRect) {
-					collisionNormal := rl.NewVector2(0, 0)
-					if previousBallPos.Y < blockRect.Y {
-						collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(0, -1))
-					}
-					if previousBallPos.Y > blockRect.Y+blockRect.Height {
-						collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(0, 1))
-					}
-
-					if previousBallPos.X < blockRect.X {
-						collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(-1, 0))
-					}
-					if previousBallPos.X > blockRect.X+blockRect.Width {
-						collisionNormal = rl.Vector2Add(collisionNormal, rl.NewVector2(1, 0))
-					}
-
-					if blockExists(x+int(collisionNormal.X), y) {
-						collisionNormal.X = 0
-					}
-
-					if blockExists(x, y+int(collisionNormal.Y)) {
-						collisionNormal.Y = 0
-					}
-
-					if collisionNormal.X != 0 || collisionNormal.Y != 0 {
-						ballDir = reflect(ballDir, collisionNormal)
-					}
-					rowColor := rowColors[y]
-					score += blockScoreColor[rowColor]
-					rl.SetSoundPitch(hitBlockSound, float32(rl.GetRandomValue(8, 12))/10)
-					rl.PlaySound(hitBlockSound)
-					blocks[x][y] = false
-					break out
-				}
-			}
-		}
-
 		rl.DrawText(fmt.Sprint(score), 5, 5, 10, rl.White)
 
 		if !started {
