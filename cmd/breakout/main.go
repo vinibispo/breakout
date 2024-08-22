@@ -27,6 +27,7 @@ var (
 	ballPos         rl.Vector2
 	ballDir         rl.Vector2
 	started         bool
+	gameOver        bool
 	blocks          [numBlocksX][numBlocksY]bool
 	rowColors       [numBlocksY]rl.Color
 	score           int
@@ -46,6 +47,7 @@ func restart() {
 	paddlePosX = screenSize/2 - paddleWidth/2
 	ballPos = rl.NewVector2(screenSize/2, ballStartY)
 	started = false
+	gameOver = false
 	score = 0
 	for i := 0; i < numBlocksX; i++ {
 		for j := 0; j < numBlocksY; j++ {
@@ -95,7 +97,8 @@ func main() {
 	restart()
 	for !rl.WindowShouldClose() {
 		var dt float32
-		if !started {
+		switch {
+		case !started:
 			ballPos = rl.NewVector2(screenSize/2+float32(math.Cos(rl.GetTime())*screenSize/2.5), ballStartY)
 			if rl.IsKeyPressed(rl.KeySpace) {
 				paddleMiddle := rl.NewVector2(paddlePosX+paddleWidth/2, paddlePosY)
@@ -103,7 +106,11 @@ func main() {
 				ballDir = rl.Vector2Normalize(ballToPaddle)
 				started = true
 			}
-		} else {
+		case gameOver:
+			if rl.IsKeyPressed(rl.KeySpace) {
+				restart()
+			}
+		default:
 			dt = rl.GetFrameTime()
 		}
 		previousBallPos := ballPos
@@ -122,8 +129,8 @@ func main() {
 			ballDir = reflect(ballDir, rl.NewVector2(0, 1))
 		}
 
-		if ballPos.Y > screenSize+ballRadius*6 {
-			restart()
+		if !gameOver && ballPos.Y > screenSize+ballRadius*6 {
+			gameOver = true
 		}
 		var paddleMoveVelocity float32
 		if rl.IsKeyDown(rl.KeyLeft) {
@@ -231,6 +238,18 @@ func main() {
 		}
 
 		rl.DrawText(fmt.Sprint(score), 5, 5, 10, rl.White)
+
+		if !started {
+			startText := "Press Space to Start"
+			startTextWidth := rl.MeasureText(startText, 15)
+			rl.DrawText(startText, screenSize/2-startTextWidth/2, ballStartY-30, 15, rl.White)
+		}
+
+		if gameOver {
+			gameOverText := fmt.Sprintf("Game Over\nScore: %d", score)
+			gameOverTextWidth := rl.MeasureText(gameOverText, 15)
+			rl.DrawText(gameOverText, screenSize/2-gameOverTextWidth/2, ballStartY-30, 15, rl.White)
+		}
 
 		rl.EndMode2D()
 		rl.EndDrawing()
