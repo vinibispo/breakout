@@ -92,7 +92,8 @@ func main() {
 	rl.InitWindow(700, 700, "breakout")
 	rl.SetTargetFPS(500)
 	backgroundColor := rl.NewColor(150, 190, 220, 255)
-	paddleColor := rl.NewColor(50, 150, 90, 255)
+	ballTexture := rl.LoadTexture("assets/ball.png")
+	paddleTexture := rl.LoadTexture("assets/paddle.png")
 
 	restart()
 	for !rl.WindowShouldClose() {
@@ -176,8 +177,8 @@ func main() {
 			Zoom: float32(rl.GetScreenHeight() / screenSize),
 		}
 		rl.BeginMode2D(camera)
-		rl.DrawRectangleRec(paddleRect, paddleColor)
-		rl.DrawCircleV(ballPos, ballRadius, rl.Red)
+		rl.DrawTextureV(paddleTexture, rl.NewVector2(paddlePosX, paddlePosY), rl.White)
+		rl.DrawTextureV(ballTexture, rl.Vector2Subtract(ballPos, rl.NewVector2(ballRadius, ballRadius)), rl.White)
 		for x := 0; x < numBlocksX; x++ {
 			for y := 0; y < numBlocksY; y++ {
 				if !blocks[x][y] {
