@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -22,12 +23,14 @@ const (
 )
 
 var (
-	paddlePosX float32
-	ballPos    rl.Vector2
-	ballDir    rl.Vector2
-	started    bool
-	blocks     [numBlocksX][numBlocksY]bool
-	rowColors  = [numBlocksY]rl.Color{}
+	paddlePosX      float32
+	ballPos         rl.Vector2
+	ballDir         rl.Vector2
+	started         bool
+	blocks          [numBlocksX][numBlocksY]bool
+	rowColors       [numBlocksY]rl.Color
+	score           int
+	blockScoreColor map[rl.Color]int
 )
 
 func calcBlockRect(x, y int) rl.Rectangle {
@@ -43,10 +46,17 @@ func restart() {
 	paddlePosX = screenSize/2 - paddleWidth/2
 	ballPos = rl.NewVector2(screenSize/2, ballStartY)
 	started = false
+	score = 0
 	for i := 0; i < numBlocksX; i++ {
 		for j := 0; j < numBlocksY; j++ {
 			blocks[i][j] = true
 		}
+	}
+	blockScoreColor = map[rl.Color]int{
+		rl.Yellow: 2,
+		rl.Green:  4,
+		rl.Orange: 6,
+		rl.Red:    8,
 	}
 }
 
@@ -152,6 +162,33 @@ func main() {
 			}
 		}
 
+		rl.BeginDrawing()
+
+		rl.ClearBackground(backgroundColor)
+		camera := rl.Camera2D{
+			Zoom: float32(rl.GetScreenHeight() / screenSize),
+		}
+		rl.BeginMode2D(camera)
+		rl.DrawRectangleRec(paddleRect, paddleColor)
+		rl.DrawCircleV(ballPos, ballRadius, rl.Red)
+		for x := 0; x < numBlocksX; x++ {
+			for y := 0; y < numBlocksY; y++ {
+				if !blocks[x][y] {
+					continue
+				}
+				rect := calcBlockRect(x, y)
+				rl.DrawRectangleRec(rect, rowColors[y])
+				topLeft := rl.NewVector2(rect.X, rect.Y)
+				topRight := rl.NewVector2(rect.X+rect.Width, rect.Y)
+				bottomLeft := rl.NewVector2(rect.X, rect.Y+rect.Height)
+				bottomRight := rl.NewVector2(rect.X+rect.Width, rect.Y+rect.Height)
+				rl.DrawLineEx(topLeft, topRight, 1, rl.NewColor(255, 255, 150, 100))
+				rl.DrawLineEx(topLeft, bottomLeft, 1, rl.NewColor(255, 255, 150, 100))
+				rl.DrawLineEx(topRight, bottomRight, 1, rl.NewColor(0, 0, 50, 100))
+				rl.DrawLineEx(bottomLeft, bottomRight, 1, rl.NewColor(0, 0, 50, 100))
+			}
+		}
+	out:
 		for x := 0; x < numBlocksX; x++ {
 			for y := 0; y < numBlocksY; y++ {
 				if !blocks[x][y] {
@@ -185,38 +222,17 @@ func main() {
 					if collisionNormal.X != 0 || collisionNormal.Y != 0 {
 						ballDir = reflect(ballDir, collisionNormal)
 					}
+					rowColor := rowColors[y]
+					score += blockScoreColor[rowColor]
 					blocks[x][y] = false
+					break out
 				}
 			}
 		}
 
-		rl.BeginDrawing()
+		rl.DrawText(fmt.Sprint(score), 5, 5, 10, rl.White)
 
-		rl.ClearBackground(backgroundColor)
-		camera := rl.Camera2D{
-			Zoom: float32(rl.GetScreenHeight() / screenSize),
-		}
-		rl.BeginMode2D(camera)
-		rl.DrawRectangleRec(paddleRect, paddleColor)
-		rl.DrawCircleV(ballPos, ballRadius, rl.Red)
-		for x := 0; x < numBlocksX; x++ {
-			for y := 0; y < numBlocksY; y++ {
-				if !blocks[x][y] {
-					continue
-				}
-				rect := calcBlockRect(x, y)
-				rl.DrawRectangleRec(rect, rowColors[y])
-				topLeft := rl.NewVector2(rect.X, rect.Y)
-				topRight := rl.NewVector2(rect.X+rect.Width, rect.Y)
-				bottomLeft := rl.NewVector2(rect.X, rect.Y+rect.Height)
-				bottomRight := rl.NewVector2(rect.X+rect.Width, rect.Y+rect.Height)
-				rl.DrawLineEx(topLeft, topRight, 1, rl.NewColor(255, 255, 150, 100))
-				rl.DrawLineEx(topLeft, bottomLeft, 1, rl.NewColor(255, 255, 150, 100))
-				rl.DrawLineEx(topRight, bottomRight, 1, rl.NewColor(0, 0, 50, 100))
-				rl.DrawLineEx(bottomLeft, bottomRight, 1, rl.NewColor(0, 0, 50, 100))
-			}
-		}
-
+		rl.EndMode2D()
 		rl.EndDrawing()
 	}
 	rl.CloseWindow()
