@@ -89,7 +89,7 @@ func main() {
 		rl.Yellow,
 	}
 	rl.SetConfigFlags(rl.FlagVsyncHint)
-	rl.InitWindow(700, 700, "breakout")
+	rl.InitWindow(750, 750, "breakout")
 	rl.InitAudioDevice()
 	rl.SetTargetFPS(500)
 	backgroundColor := rl.NewColor(150, 190, 220, 255)
@@ -238,6 +238,7 @@ func main() {
 					}
 					rowColor := rowColors[y]
 					score += blockScoreColor[rowColor]
+					rl.SetSoundPitch(hitBlockSound, float32(rl.GetRandomValue(8, 12))/10)
 					rl.PlaySound(hitBlockSound)
 					blocks[x][y] = false
 					break out
